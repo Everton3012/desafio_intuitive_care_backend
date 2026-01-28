@@ -1,0 +1,22 @@
+# Ambiente virtual
+.venv/
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Configurações de editor
+.vscode/
+
+# Dados grandes / gerados
+data/raw/
+data/extracted/
+
+# Variáveis de ambiente
+.env
+
+# Logs
+*.log
+
+# Arquivos compactados
+*.zip
