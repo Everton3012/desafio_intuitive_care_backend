@@ -119,6 +119,13 @@ def process_files():
         return
 
     final_df = pd.concat(results, ignore_index=True)
+
+    final_df = (
+        final_df
+        .groupby(["REG_ANS", "ano", "trimestre"], as_index=False)["VL_SALDO_FINAL"]
+        .sum()
+    )
+
     final_df["VL_SALDO_FINAL"] = final_df["VL_SALDO_FINAL"].round(2)
 
     output_file = FINAL_DIR / "despesas_por_operadora_trimestre.csv"

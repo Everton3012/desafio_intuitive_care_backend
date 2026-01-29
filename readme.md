@@ -37,8 +37,7 @@ Teste_IntuitiveCare/
 │
 ├── etl/
 │   ├── download_ans.py
-│   ├── process_files.py
-│   └── consolidate.py
+│   └── process_files.py
 │
 ├── data/
 │   ├── raw/
