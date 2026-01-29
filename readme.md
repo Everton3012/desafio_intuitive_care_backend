@@ -32,7 +32,7 @@ organizados por ano e trimestre, conforme estrutura disponibilizada pela ANS.
 ---
 
 ## Estrutura do Projeto
-
+```
 Teste_IntuitiveCare/
 │
 ├── etl/
@@ -54,6 +54,7 @@ Teste_IntuitiveCare/
 │
 ├── requirements.txt
 └── README.md
+```
 
 ---
 
@@ -61,21 +62,29 @@ Teste_IntuitiveCare/
 
 ### 1. Criar ambiente virtual
 
+```
 python -m venv .venv
+```
 
 ### 2. Ativar ambiente virtual
 
 Windows:
 
+```
 .venv\Scripts\activate
+```
 
 Linux/Mac:
 
+```
 source .venv/bin/activate
+```
 
 ### 3. Instalar dependências
 
+```
 pip install -r requirements.txt
+```
 
 ---
 
@@ -83,14 +92,18 @@ pip install -r requirements.txt
 
 ### 1. Download dos últimos 3 trimestres da ANS
 
+```
 python etl/download_ans.py
+```
 
 O script identifica automaticamente os últimos três trimestres disponíveis e realiza o download
 dos arquivos ZIP para a pasta data/raw.
 
 ### 2. Extração, filtragem e consolidação das despesas
 
+```
 python etl/process_files.py
+```
 
 O script realiza:
 
@@ -110,7 +123,9 @@ logs/etl.log
 
 ### 3. Enriquecimento com dados cadastrais das operadoras
 
+```
 python etl/consolidate.py
+```
 
 Este script realiza o cruzamento dos dados consolidados com a base cadastral de operadoras da ANS,
 adicionando CNPJ e Razão Social, gerando o arquivo final no formato exigido pelo teste técnico.
