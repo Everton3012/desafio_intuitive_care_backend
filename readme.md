@@ -223,24 +223,95 @@ Ordenação:
 
 ## Teste 3 – Banco de Dados e Análise (PostgreSQL)
 
-Foi implementada uma camada de persistência e análise utilizando PostgreSQL,
-conforme solicitado no Teste 3 do desafio técnico.
+### Modelagem e Normalização
 
-### Principais atividades realizadas:
+Foi adotada uma abordagem de **modelagem normalizada**, com tabelas separadas para:
 
-- Criação de tabelas normalizadas (operadoras, despesas consolidadas e agregadas)
-- Definição de chaves primárias, estrangeiras e índices
-- Importação robusta dos CSVs utilizando tabelas de staging
-- Tratamento de:
-  - encoding (LATIN1 / UTF-8)
-  - dados inconsistentes
-  - duplicidades
-  - valores nulos
-- Execução de queries analíticas avançadas utilizando CTEs e window functions
+- Operadoras
+- Despesas consolidadas
+- Despesas agregadas
 
-Os scripts SQL estão disponíveis no diretório `sql/` e foram executados em um
-container PostgreSQL via Docker.
+Essa decisão permite evitar redundância de dados cadastrais, manter integridade
+referencial e facilitar análises futuras com menor risco de inconsistências.
 
+
+### Trade-offs Técnicos – Normalização
+
+**Abordagem escolhida:** Tabelas normalizadas (Opção B)
+
+**Justificativa:**
+
+- O volume de dados é moderado e adequado para normalização sem impacto negativo
+  relevante de performance.
+- A frequência de atualização dos dados é baixa (processamento periódico),
+  reduzindo o custo de joins.
+- Queries analíticas se tornam mais legíveis e fáceis de manter.
+- Evita duplicação de informações cadastrais das operadoras.
+
+**Alternativa considerada (tabela desnormalizada):**
+Foi descartada por aumentar redundância e dificultar a manutenção dos dados
+cadastrais ao longo do tempo.
+
+### Tipos de Dados
+
+**Valores monetários:**
+Foi utilizado o tipo `DECIMAL` em vez de `FLOAT`, garantindo precisão nos cálculos
+financeiros e evitando erros de arredondamento.
+
+**Datas e períodos:**
+- Ano e trimestre foram armazenados separadamente (`SMALLINT`), pois:
+  - Facilitam filtros e agregações
+  - Evitam parsing de strings
+  - São suficientes para o nível de granularidade do problema
+
+**CNPJ e UF:**
+- `VARCHAR` para CNPJ, preservando zeros à esquerda
+- `CHAR(2)` para UF, garantindo padronização
+
+### Importação e Tratamento de Inconsistências
+
+A importação dos dados foi realizada utilizando **tabelas de staging**, permitindo
+tratamento prévio antes da inserção nas tabelas finais.
+
+Durante o processo, foram tratadas as seguintes situações:
+
+- **Encoding:**  
+  Arquivos das operadoras utilizam `LATIN1`, enquanto os arquivos de despesas
+  utilizam `UTF-8`. O encoding foi tratado explicitamente durante o `COPY`.
+
+- **Valores NULL em campos obrigatórios:**  
+  Registros sem CNPJ, Razão Social ou valores numéricos válidos foram descartados.
+
+- **Strings em campos numéricos:**  
+  Valores monetários foram normalizados removendo separadores de milhar e
+  convertidos para `DECIMAL`.
+
+- **Duplicidade de CNPJ:**  
+  Foi priorizada a operadora ativa em caso de duplicidade, mantendo apenas um
+  registro por CNPJ.
+
+Essa abordagem garante maior robustez e evita falhas durante a carga.
+
+### Queries Analíticas
+
+Foram desenvolvidas queries analíticas utilizando **CTEs** e **window functions**
+para maior clareza e desempenho.
+
+**Query 1 – Crescimento percentual de despesas:**
+- Calcula o crescimento entre o primeiro e o último trimestre disponível por
+  operadora.
+- Operadoras sem dados completos são mantidas, mas excluídas do ranking caso não
+  seja possível calcular o crescimento.
+
+**Query 2 – Distribuição de despesas por UF:**
+- Soma total de despesas por UF
+- Cálculo da média de despesas por operadora em cada estado
+
+**Query 3 – Operadoras acima da média:**
+- Identifica operadoras com despesas acima da média geral em pelo menos 2 dos 3
+  trimestres analisados.
+- Foi escolhida uma abordagem baseada em agregações e CTEs por oferecer boa
+  legibilidade e facilidade de manutenção.
 
 ## Logs
 
