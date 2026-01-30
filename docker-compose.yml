@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: intuitivecare_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: intuitivecare
+      POSTGRES_USER: intuitive
+      POSTGRES_PASSWORD: intuitive123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql:/sql
+      - ./data/final:/data
+
+volumes:
+  pgdata:

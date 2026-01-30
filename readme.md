@@ -7,7 +7,7 @@ enriquecimento e agregação de dados de despesas das operadoras de saúde a par
 API de Dados Abertos da ANS.
 
 O projeto foi implementado como um **pipeline automatizado ponta a ponta**, cobrindo
-integralmente os Testes 1 e 2 do desafio técnico.
+integralmente os Testes 1, 2 e 3 do desafio técnico.
 
 ---
 
@@ -218,6 +218,29 @@ Ordenação:
 - Total de despesas (ordem decrescente)
 
 ---
+
+---
+
+## Teste 3 – Banco de Dados e Análise (PostgreSQL)
+
+Foi implementada uma camada de persistência e análise utilizando PostgreSQL,
+conforme solicitado no Teste 3 do desafio técnico.
+
+### Principais atividades realizadas:
+
+- Criação de tabelas normalizadas (operadoras, despesas consolidadas e agregadas)
+- Definição de chaves primárias, estrangeiras e índices
+- Importação robusta dos CSVs utilizando tabelas de staging
+- Tratamento de:
+  - encoding (LATIN1 / UTF-8)
+  - dados inconsistentes
+  - duplicidades
+  - valores nulos
+- Execução de queries analíticas avançadas utilizando CTEs e window functions
+
+Os scripts SQL estão disponíveis no diretório `sql/` e foram executados em um
+container PostgreSQL via Docker.
+
 
 ## Logs
 
