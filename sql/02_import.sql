@@ -1,5 +1,5 @@
 BEGIN;
-
+SET client_encoding TO 'UTF8';
 TRUNCATE TABLE despesas_consolidadas, despesas_agregadas RESTART IDENTITY;
 TRUNCATE TABLE operadoras RESTART IDENTITY CASCADE;
 
@@ -43,9 +43,9 @@ dados AS (
     situacao,
     trim(both '"' from split_part(linha, ';', 1)) AS registro_ans,
     trim(both '"' from split_part(linha, ';', 2)) AS cnpj,
-    trim(both '"' from split_part(linha, ';', 3)) AS razao_social,
-    trim(both '"' from split_part(linha, ';', 5)) AS modalidade,
-    trim(both '"' from split_part(linha, ';', 11)) AS uf
+    convert_from(convert_to(trim(both '"' from split_part(linha, ';', 3)), 'LATIN1'), 'UTF8') AS razao_social,
+    convert_from(convert_to(trim(both '"' from split_part(linha, ';', 5)), 'LATIN1'), 'UTF8') AS modalidade,
+    convert_from(convert_to(trim(both '"' from split_part(linha, ';', 11)), 'LATIN1'), 'UTF8') AS uf
   FROM limpa
 ),
 normalizado AS (
