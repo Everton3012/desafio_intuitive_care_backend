@@ -460,9 +460,7 @@ Arquivos gerados:
 
 - Implementar testes automatizados
 - Automatizar a carga no banco após a execução do pipeline (ex.: script único ou docker-compose)
-- Ajustar encoding de strings (ex.: normalizar para UTF-8 para evitar caracteres como "SAÃDE")
-- Implementar o frontend Vue.js (tabela, busca, gráfico por UF e tela de detalhes)
-- Criar coleção do Postman com exemplos de requests/respostas
+
 ---
 
 ## Frontend (Vue.js) – Status
