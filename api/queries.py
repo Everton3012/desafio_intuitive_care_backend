@@ -76,3 +76,35 @@ GROUP BY COALESCE(o.uf, 'NI')
 ORDER BY total_despesas DESC
 LIMIT 5
 """
+
+# Com q + situacao
+Q_OPERADORAS_COUNT_FILTER_SITUACAO = """
+SELECT COUNT(*)::int AS total
+FROM operadoras
+WHERE (cnpj ILIKE %(q_like)s OR razao_social ILIKE %(q_like)s)
+  AND situacao = %(situacao)s;
+"""
+
+Q_OPERADORAS_LIST_FILTER_SITUACAO = """
+SELECT cnpj, registro_ans, razao_social, modalidade, uf, situacao
+FROM operadoras
+WHERE (cnpj ILIKE %(q_like)s OR razao_social ILIKE %(q_like)s)
+  AND situacao = %(situacao)s
+ORDER BY razao_social
+LIMIT %(limit)s OFFSET %(offset)s;
+"""
+
+# Sem q, só situacao
+Q_OPERADORAS_COUNT_ALL_SITUACAO = """
+SELECT COUNT(*)::int AS total
+FROM operadoras
+WHERE situacao = %(situacao)s;
+"""
+
+Q_OPERADORAS_LIST_ALL_SITUACAO = """
+SELECT cnpj, registro_ans, razao_social, modalidade, uf, situacao
+FROM operadoras
+WHERE situacao = %(situacao)s
+ORDER BY razao_social
+LIMIT %(limit)s OFFSET %(offset)s;
+"""

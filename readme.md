@@ -32,6 +32,9 @@ Fontes utilizadas:
 - Requests
 - BeautifulSoup4
 - FastAPI
+- PostgreSQL 15
+- Docker
+- SQL
 - Git
 
 ---
@@ -64,6 +67,11 @@ Teste_IntuitiveCare/
 │   └── schemas.py
 │
 ├── sql/
+│   ├── 01_ddl.sql
+│   ├── 02_import.sql
+│   └── 03_queries.sql
+│
+├── logs/
 │
 ├── run_pipeline.py
 ├── requirements.txt
@@ -407,7 +415,7 @@ a partir do banco PostgreSQL gerado no Teste 3.
 ### Rotas implementadas
 
 - `GET /api/operadoras`  
-  Lista operadoras com paginação (`page`, `limit`) e filtro opcional `q` (CNPJ ou Razão Social).
+  Lista operadoras com paginação (`page`, `limit`) , filtro opcional `q` (CNPJ ou Razão Social) e filtro opcional `situacao` (ATIVA ou CANCELADA).
 
 - `GET /api/operadoras/{cnpj}`  
   Retorna detalhes de uma operadora específica.
@@ -420,6 +428,9 @@ a partir do banco PostgreSQL gerado no Teste 3.
 
 - `GET /health`  
   Healthcheck simples com verificação de conexão ao banco.
+
+- `POST /api/admin/atualizar`  
+  executa a pipeline ,sobe as informações para o banco e devolve as nformaçoes para o frontend
 
 ### Trade-offs Técnicos (Backend)
 
@@ -437,6 +448,25 @@ quando o pipeline é executado. Em cenário real, poderia ser cacheado por X min
 
 **Resposta de paginação:** dados + metadados  
 Retorna `{ data, total, page, limit }` para facilitar o frontend e evitar chamadas extras.
+
+---
+
+## 🧩 Visão Geral da Arquitetura
+
+```
+Dados Públicos ANS
+        ↓
+Pipeline Python (ETL)
+        ↓
+CSVs Consolidados
+        ↓
+PostgreSQL (Docker)
+        ↓
+FastAPI
+        ↓
+Frontend (Vue.js)
+```
+---
 
 ## Logs
 
@@ -468,7 +498,4 @@ Arquivos gerados:
 A interface web em Vue.js está planejada conforme especificação do Teste 4, com:
 - tabela paginada de operadoras
 - busca por CNPJ/Razão Social
-- gráfico de distribuição de despesas por UF
 - página de detalhes com histórico de despesas
-
-(Implementação em andamento / não incluída nesta entrega.)
