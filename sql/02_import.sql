@@ -1,10 +1,11 @@
 BEGIN;
 SET client_encoding TO 'UTF8';
+
 TRUNCATE TABLE despesas_consolidadas, despesas_agregadas RESTART IDENTITY;
 TRUNCATE TABLE operadoras RESTART IDENTITY CASCADE;
 
 -- Ajustar precisão das colunas se necessário
-ALTER TABLE despesas_agregadas 
+ALTER TABLE despesas_agregadas
 ALTER COLUMN total_despesas TYPE DECIMAL(22,2),
 ALTER COLUMN media_trimestral TYPE DECIMAL(22,2),
 ALTER COLUMN desvio_padrao TYPE DECIMAL(22,2);
@@ -18,12 +19,13 @@ DROP TABLE IF EXISTS operadoras_canceladas_raw;
 CREATE TABLE operadoras_ativas_raw (linha TEXT);
 CREATE TABLE operadoras_canceladas_raw (linha TEXT);
 
+-- ✅ AGORA LÊ DO VOLUME /shared (em vez de /tmp)
 COPY operadoras_ativas_raw (linha)
-FROM '/tmp/Relatorio_cadop.csv'
+FROM '/shared/Relatorio_cadop.csv'
 WITH (FORMAT text, ENCODING 'LATIN1');
 
 COPY operadoras_canceladas_raw (linha)
-FROM '/tmp/Relatorio_cadop_canceladas.csv'
+FROM '/shared/Relatorio_cadop_canceladas.csv'
 WITH (FORMAT text, ENCODING 'LATIN1');
 
 WITH src AS (
@@ -61,7 +63,7 @@ normalizado AS (
       ELSE NULL
     END AS uf
   FROM dados
-  WHERE cnpj IS NOT NULL 
+  WHERE cnpj IS NOT NULL
     AND trim(cnpj) <> ''
     AND cnpj !~ '^(CNPJ|Cnpj)'
     AND registro_ans !~ '^(REGISTRO_OPERADORA|Registro_ANS)'
@@ -113,12 +115,13 @@ CREATE TABLE despesas_agregadas_staging (
   desvio_padrao    TEXT
 );
 
+-- ✅ AGORA LÊ DO VOLUME /shared (em vez de /tmp)
 COPY despesas_consolidadas_staging (registro_ans_raw, vl_saldo_final_raw, ano_raw, trimestre_raw, cnpj_raw, razao_social_raw)
-FROM '/tmp/despesas_consolidadas_final.csv'
+FROM '/shared/despesas_consolidadas_final.csv'
 WITH (FORMAT csv, HEADER true, DELIMITER ';', QUOTE '"', ENCODING 'UTF8');
 
 COPY despesas_agregadas_staging (razao_social, uf, total_despesas, media_trimestral, desvio_padrao)
-FROM '/tmp/despesas_agregadas.csv'
+FROM '/shared/despesas_agregadas.csv'
 WITH (FORMAT csv, HEADER true, DELIMITER ';', QUOTE '"', ENCODING 'UTF8');
 
 -- INSERIR TODAS AS OPERADORAS FALTANTES

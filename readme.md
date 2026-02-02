@@ -10,6 +10,13 @@ O projeto foi implementado como um **pipeline automatizado ponta a ponta**, cobr
 
 ---
 
+## Repositórios Relacionados
+
+- **Backend (este repositório):** API FastAPI + Pipeline ETL
+- **Frontend:** [link-do-repositorio-frontend](https://github.com/Everton3012/front_intuitive_care)
+
+---
+
 ## Fonte dos Dados
 
 Os dados utilizados no projeto são provenientes da base pública da ANS
@@ -33,7 +40,7 @@ Fontes utilizadas:
 - BeautifulSoup4
 - FastAPI
 - PostgreSQL 15
-- Docker
+- Docker & Docker Compose
 - SQL
 - Git
 
@@ -71,13 +78,41 @@ Teste_IntuitiveCare/
 │   ├── 02_import.sql
 │   └── 03_queries.sql
 │
-├── logs/
-│
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── Dockerfile
 ├── run_pipeline.py
 ├── requirements.txt
 └── README.md
 ```
 
+
+---
+
+## Execução Rápida (Docker Compose)
+
+### Pré-requisitos
+
+- Docker e Docker Compose instalados
+- Git
+
+### 1) Clonar o repositório
+
+```bash
+git clone <url-do-repositorio>
+cd desafio
+```
+### 2) Configurar variáveis de ambiente
+```bash
+cp .env.example .env
+```
+
+### 3) Subir os containers
+```bash
+docker compose up --build
+```
 ---
 
 ## Como Executar
@@ -486,16 +521,6 @@ Arquivos gerados:
 
 ---
 
-## Limitações e Melhorias Futuras
+## Autor
 
-- Implementar testes automatizados
-- Automatizar a carga no banco após a execução do pipeline (ex.: script único ou docker-compose)
-
----
-
-## Frontend (Vue.js) – Status
-
-A interface web em Vue.js está planejada conforme especificação do Teste 4, com:
-- tabela paginada de operadoras
-- busca por CNPJ/Razão Social
-- página de detalhes com histórico de despesas
+Everton Brandão

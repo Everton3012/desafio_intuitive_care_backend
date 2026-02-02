@@ -1,20 +1,43 @@
-version: "3.9"
-
 services:
-  postgres:
+  db:
     image: postgres:15
     container_name: intuitivecare_postgres
-    restart: always
     environment:
-      POSTGRES_DB: intuitivecare
-      POSTGRES_USER: intuitive
-      POSTGRES_PASSWORD: intuitive123
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "${DB_PORT}:${DB_PORT}"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./sql:/sql
-      - ./data/final:/data
+      - shared:/shared
+      - ./sql/01_ddl.sql:/docker-entrypoint-initdb.d/01_ddl.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    container_name: intuitivecare_api
+    environment:
+      DB_HOST: db
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PIPELINE_TOKEN: ${PIPELINE_TOKEN}
+      SHARED_DIR: /shared
+    ports:
+      - "8000:8000"
+    volumes:
+      - shared:/shared
+      - ./sql:/sql:ro
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  shared:

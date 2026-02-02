@@ -4,7 +4,8 @@ import logging
 import threading
 import subprocess
 import sys
-from datetime import datetime
+import shutil
+from datetime import datetime, timezone
 from fastapi import Header
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,7 +37,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+
 def run_pipeline_and_import() -> str:
+    shared_dir = os.getenv("SHARED_DIR", os.path.join(BASE_DIR, "shared"))
+    os.makedirs(shared_dir, exist_ok=True)
+
+    # 1) roda pipeline (gera CSVs em data/final e data/raw)
+    p1 = subprocess.run(
+        [sys.executable, "run_pipeline.py"],
+        cwd=BASE_DIR,
+        capture_output=True,
+        text=True
+    )
+    if p1.returncode != 0:
+        raise RuntimeError(p1.stderr or p1.stdout or "Falha ao executar pipeline")
+
+    # 2) copia os arquivos necessários para o /shared (volume)
+    files = [
+        (os.path.join(BASE_DIR, "data", "final", "despesas_consolidadas_final.csv"), os.path.join(shared_dir, "despesas_consolidadas_final.csv")),
+        (os.path.join(BASE_DIR, "data", "final", "despesas_agregadas.csv"), os.path.join(shared_dir, "despesas_agregadas.csv")),
+        (os.path.join(BASE_DIR, "data", "raw", "Relatorio_cadop.csv"), os.path.join(shared_dir, "Relatorio_cadop.csv")),
+        (os.path.join(BASE_DIR, "data", "raw", "Relatorio_cadop_canceladas.csv"), os.path.join(shared_dir, "Relatorio_cadop_canceladas.csv")),
+    ]
+
+    for src, dst in files:
+        if not os.path.exists(src):
+            raise RuntimeError(f"Arquivo não encontrado: {src}")
+        shutil.copyfile(src, dst)
+
+    # 3) executa import no banco via psql (do container da API para o serviço db)
+    sql_file = os.path.join(BASE_DIR, "sql", "02_import.sql")
+
+    env = os.environ.copy()
+    env["PGPASSWORD"] = os.getenv("DB_PASSWORD", "intuitive123")
+
+    p2 = subprocess.run(
+        [
+            "psql",
+            "-h", os.getenv("DB_HOST", "db"),
+            "-p", str(os.getenv("DB_PORT", "5432")),
+            "-U", os.getenv("DB_USER", "intuitive"),
+            "-d", os.getenv("DB_NAME", "intuitivecare"),
+            "-v", "ON_ERROR_STOP=1",
+            "-f", sql_file,
+        ],
+        cwd=BASE_DIR,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    if p2.returncode != 0:
+        raise RuntimeError(p2.stderr or p2.stdout or "Falha ao importar no banco")
+
+    return (p1.stdout + "\n" + p1.stderr + "\n" + p2.stdout + "\n" + p2.stderr)[-6000:]
+
     # 1) pipeline (gera CSVs)
     p1 = subprocess.run(
         [sys.executable, "run_pipeline.py"],
@@ -120,7 +176,7 @@ def list_operadoras(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     q: str | None = Query(None),
-    situacao: str | None = Query(None, regex="^(ATIVA|CANCELADA)$"),
+    situacao: str | None = Query(None, pattern="^(ATIVA|CANCELADA)$"),
 ):
     try:
         offset = (page - 1) * limit
@@ -255,14 +311,14 @@ def atualizar_dados(x_pipeline_token: str | None = Header(default=None)):
     if not PIPELINE_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Atualização já está em andamento.")
 
-    started_at = datetime.utcnow().isoformat()
+    started_at = datetime.now(timezone.utc)
     try:
         last_output = run_pipeline_and_import()
         return {
             "status": "success",
             "message": "Pipeline executado e banco atualizado com sucesso.",
             "started_at": started_at,
-            "finished_at": datetime.utcnow().isoformat(),
+            "finished_at": datetime.now(timezone.utc),
             "last_output": last_output,
         }
     except Exception as e:
