@@ -1,12 +1,12 @@
 import logging
 import re
+import requests
+
+from bs4 import BeautifulSoup
+from etl.logging_config import setup_logging
 from pathlib import Path
 from urllib.parse import urljoin
 
-import requests
-from bs4 import BeautifulSoup
-
-from etl.logging_config import setup_logging
 
 RAW_DIR = Path("data/raw")
 RAW_DIR.mkdir(parents=True, exist_ok=True)

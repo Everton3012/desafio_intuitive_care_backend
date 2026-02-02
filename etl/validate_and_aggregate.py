@@ -1,11 +1,11 @@
 import logging
 import re
 import zipfile
-from pathlib import Path
-
 import pandas as pd
 
+from pathlib import Path
 from etl.logging_config import setup_logging
+
 
 DATA_FINAL = Path("data/final")
 RAW_DIR = Path("data/raw")

@@ -54,6 +54,7 @@ Teste_IntuitiveCare/
 ├── etl/
 │   ├── download_ans.py
 │   ├── download_operadoras.py
+│   ├── logging_configs.py
 │   ├── process_files.py
 │   ├── consolidate.py
 │   └── validate_and_aggregate.py
@@ -70,6 +71,7 @@ Teste_IntuitiveCare/
 ├── api/
 │   ├── main.py
 │   ├── db.py
+│   ├── pipeline.py
 │   ├── queries.py
 │   └── schemas.py
 │

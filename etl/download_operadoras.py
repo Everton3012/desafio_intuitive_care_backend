@@ -1,9 +1,10 @@
-# etl/download_operadoras.py
-from pathlib import Path
 import logging
 import requests
+
+from pathlib import Path
 from bs4 import BeautifulSoup
 from etl.logging_config import setup_logging
+
 
 RAW_DIR = Path("data/raw")
 RAW_DIR.mkdir(parents=True, exist_ok=True)

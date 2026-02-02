@@ -1,11 +1,10 @@
-# etl/consolidate.py
 import logging
 import zipfile
-from pathlib import Path
-
 import pandas as pd
 
+from pathlib import Path
 from etl.logging_config import setup_logging
+
 
 RAW_DIR = Path("data/raw")
 FINAL_DIR = Path("data/final")

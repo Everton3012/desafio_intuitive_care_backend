@@ -1,5 +1,3 @@
-# api/queries.py
-
 # Contagem com filtro
 Q_OPERADORAS_COUNT_FILTER = """
 SELECT COUNT(*)::int AS total

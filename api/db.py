@@ -1,8 +1,7 @@
-# api/db.py
 import os
-from contextlib import contextmanager
-
 import psycopg
+
+from contextlib import contextmanager
 from psycopg.rows import dict_row
 
 

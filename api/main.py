@@ -1,22 +1,18 @@
-# api/main.py
 import os
 import logging
 import threading
-import subprocess
-import sys
-import shutil
+
 from datetime import datetime, timezone
-from fastapi import Header
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Header
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from api.db import get_conn, get_cursor
 from api.schemas import OperadoraListResponse, EstatisticasResponse
 from api import queries
+from api.pipeline import run_pipeline_and_import
+
 
 PIPELINE_LOCK = threading.Lock()
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,6 +20,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 os.environ['PGCLIENTENCODING'] = 'UTF8'
+
 app = FastAPI(
     title="IntuitiveCare - Teste Técnico", 
     version="1.0.0",
@@ -37,121 +34,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
-def run_pipeline_and_import() -> str:
-    shared_dir = os.getenv("SHARED_DIR", os.path.join(BASE_DIR, "shared"))
-    os.makedirs(shared_dir, exist_ok=True)
-
-    # 1) roda pipeline (gera CSVs em data/final e data/raw)
-    p1 = subprocess.run(
-        [sys.executable, "run_pipeline.py"],
-        cwd=BASE_DIR,
-        capture_output=True,
-        text=True
-    )
-    if p1.returncode != 0:
-        raise RuntimeError(p1.stderr or p1.stdout or "Falha ao executar pipeline")
-
-    # 2) copia os arquivos necessários para o /shared (volume)
-    files = [
-        (os.path.join(BASE_DIR, "data", "final", "despesas_consolidadas_final.csv"), os.path.join(shared_dir, "despesas_consolidadas_final.csv")),
-        (os.path.join(BASE_DIR, "data", "final", "despesas_agregadas.csv"), os.path.join(shared_dir, "despesas_agregadas.csv")),
-        (os.path.join(BASE_DIR, "data", "raw", "Relatorio_cadop.csv"), os.path.join(shared_dir, "Relatorio_cadop.csv")),
-        (os.path.join(BASE_DIR, "data", "raw", "Relatorio_cadop_canceladas.csv"), os.path.join(shared_dir, "Relatorio_cadop_canceladas.csv")),
-    ]
-
-    for src, dst in files:
-        if not os.path.exists(src):
-            raise RuntimeError(f"Arquivo não encontrado: {src}")
-        shutil.copyfile(src, dst)
-
-    # 3) executa import no banco via psql (do container da API para o serviço db)
-    sql_file = os.path.join(BASE_DIR, "sql", "02_import.sql")
-
-    env = os.environ.copy()
-    env["PGPASSWORD"] = os.getenv("DB_PASSWORD", "intuitive123")
-
-    p2 = subprocess.run(
-        [
-            "psql",
-            "-h", os.getenv("DB_HOST", "db"),
-            "-p", str(os.getenv("DB_PORT", "5432")),
-            "-U", os.getenv("DB_USER", "intuitive"),
-            "-d", os.getenv("DB_NAME", "intuitivecare"),
-            "-v", "ON_ERROR_STOP=1",
-            "-f", sql_file,
-        ],
-        cwd=BASE_DIR,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
-
-    if p2.returncode != 0:
-        raise RuntimeError(p2.stderr or p2.stdout or "Falha ao importar no banco")
-
-    return (p1.stdout + "\n" + p1.stderr + "\n" + p2.stdout + "\n" + p2.stderr)[-6000:]
-
-    # 1) pipeline (gera CSVs)
-    p1 = subprocess.run(
-        [sys.executable, "run_pipeline.py"],
-        cwd=BASE_DIR,
-        capture_output=True,
-        text=True
-    )
-    if p1.returncode != 0:
-        raise RuntimeError(p1.stderr or p1.stdout or "Falha ao executar pipeline")
-
-    container = os.getenv("POSTGRES_CONTAINER", "intuitivecare_postgres")
-
-    # 2) copia DDL e IMPORT SQL para dentro do container (não depende de mount)
-    ddl_local = os.path.join(BASE_DIR, "sql", "01_ddl.sql")
-    imp_local = os.path.join(BASE_DIR, "sql", "02_import.sql")
-
-    for local_path, dst in [(ddl_local, "/tmp/01_ddl.sql"), (imp_local, "/tmp/02_import.sql")]:
-        p_cp = subprocess.run(
-            ["docker", "cp", local_path, f"{container}:{dst}"],
-            capture_output=True,
-            text=True
-        )
-        if p_cp.returncode != 0:
-            raise RuntimeError(p_cp.stderr or p_cp.stdout or f"Falha ao copiar {os.path.basename(local_path)}")
-
-    # 3) copia os CSVs pro /tmp do container (necessário pro COPY FROM '/tmp/...csv')
-    files = [
-        (os.path.join(BASE_DIR, "data", "final", "despesas_consolidadas_final.csv"), "/tmp/despesas_consolidadas_final.csv"),
-        (os.path.join(BASE_DIR, "data", "final", "despesas_agregadas.csv"), "/tmp/despesas_agregadas.csv"),
-        (os.path.join(BASE_DIR, "data", "raw", "Relatorio_cadop.csv"), "/tmp/Relatorio_cadop.csv"),
-        (os.path.join(BASE_DIR, "data", "raw", "Relatorio_cadop_canceladas.csv"), "/tmp/Relatorio_cadop_canceladas.csv"),
-    ]
-
-    for src, dst in files:
-        p_csv = subprocess.run(
-            ["docker", "cp", src, f"{container}:{dst}"],
-            capture_output=True,
-            text=True
-        )
-        if p_csv.returncode != 0:
-            raise RuntimeError(p_csv.stderr or p_csv.stdout or f"Falha ao copiar CSV {os.path.basename(src)}")
-
-    # 4) executa DDL e depois import no banco
-    def run_psql(file_in_container: str):
-        p = subprocess.run(
-            ["docker", "exec", "-i", container,
-             "psql", "-U", "intuitive", "-d", "intuitivecare", "-v", "ON_ERROR_STOP=1",
-             "-f", file_in_container],
-            capture_output=True,
-            text=True
-        )
-        if p.returncode != 0:
-            raise RuntimeError(p.stderr or p.stdout or f"Falha ao executar {file_in_container}")
-        return p.stdout + "\n" + (p.stderr or "")
-
-    out_ddl = run_psql("/tmp/01_ddl.sql")
-    out_imp = run_psql("/tmp/02_import.sql")
-
-    return (p1.stdout + "\n" + p1.stderr + "\n" + out_ddl + "\n" + out_imp)[-6000:]
 
 @app.get("/")
 def root():
@@ -187,48 +69,26 @@ def list_operadoras(
                 if situacao:
                     if q_clean:
                         q_like = f"%{q_clean}%"
-                        cur.execute(
-                            queries.Q_OPERADORAS_COUNT_FILTER_SITUACAO,
-                            {"q_like": q_like, "situacao": situacao},
-                        )
+                        cur.execute(queries.Q_OPERADORAS_COUNT_FILTER_SITUACAO, {"q_like": q_like, "situacao": situacao})
                         total = cur.fetchone()["total"]
-
-                        cur.execute(
-                            queries.Q_OPERADORAS_LIST_FILTER_SITUACAO,
-                            {"q_like": q_like, "situacao": situacao, "limit": limit, "offset": offset},
-                        )
+                        cur.execute(queries.Q_OPERADORAS_LIST_FILTER_SITUACAO, {"q_like": q_like, "situacao": situacao, "limit": limit, "offset": offset})
                         rows = cur.fetchall()
                     else:
-                        cur.execute(
-                            queries.Q_OPERADORAS_COUNT_ALL_SITUACAO,
-                            {"situacao": situacao},
-                        )
+                        cur.execute(queries.Q_OPERADORAS_COUNT_ALL_SITUACAO, {"situacao": situacao})
                         total = cur.fetchone()["total"]
-
-                        cur.execute(
-                            queries.Q_OPERADORAS_LIST_ALL_SITUACAO,
-                            {"situacao": situacao, "limit": limit, "offset": offset},
-                        )
+                        cur.execute(queries.Q_OPERADORAS_LIST_ALL_SITUACAO, {"situacao": situacao, "limit": limit, "offset": offset})
                         rows = cur.fetchall()
                 else:
                     if q_clean:
                         q_like = f"%{q_clean}%"
                         cur.execute(queries.Q_OPERADORAS_COUNT_FILTER, {"q_like": q_like})
                         total = cur.fetchone()["total"]
-
-                        cur.execute(
-                            queries.Q_OPERADORAS_LIST_FILTER,
-                            {"q_like": q_like, "limit": limit, "offset": offset},
-                        )
+                        cur.execute(queries.Q_OPERADORAS_LIST_FILTER, {"q_like": q_like, "limit": limit, "offset": offset})
                         rows = cur.fetchall()
                     else:
                         cur.execute(queries.Q_OPERADORAS_COUNT_ALL)
                         total = cur.fetchone()["total"]
-
-                        cur.execute(
-                            queries.Q_OPERADORAS_LIST_ALL,
-                            {"limit": limit, "offset": offset},
-                        )
+                        cur.execute(queries.Q_OPERADORAS_LIST_ALL, {"limit": limit, "offset": offset})
                         rows = cur.fetchall()
 
         return {"data": rows, "total": total, "page": page, "limit": limit}
@@ -236,6 +96,7 @@ def list_operadoras(
     except Exception as e:
         logger.error(f"Erro: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/operadoras/{cnpj}")
 def get_operadora(cnpj: str):
@@ -300,14 +161,14 @@ def get_estatisticas():
     except Exception as e:
         logger.error(f"Erro: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @app.post("/api/admin/atualizar")
 def atualizar_dados(x_pipeline_token: str | None = Header(default=None)):
     token = os.getenv("PIPELINE_TOKEN")
     if token and x_pipeline_token != token:
         raise HTTPException(status_code=401, detail="Token inválido")
 
-    # impede duas execuções ao mesmo tempo
     if not PIPELINE_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail="Atualização já está em andamento.")
 
